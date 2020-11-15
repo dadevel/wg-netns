@@ -85,7 +85,7 @@ def setup_interface(wg_dir, netns_dir, name):
             'ip', 'netns', 'exec', name,
             'wg', 'set', name,
             'peer', peer['publickey'],
-            'preshared-key', '/dev/stdin',
+            'preshared-key', '/dev/stdin' if peer.get('presharedkey') else '/dev/null',
             'endpoint', peer['endpoint'],
             'persistent-keepalive', peer.get('persistentkeepalive', 0),
             'allowed-ips', '0.0.0.0/0,::/0',
