@@ -8,7 +8,7 @@ A simple python script that implements the steps described at [wireguard.com/net
 Requirements:
 
 - Linux
-- Python 3.8 or newer
+- Python 3.7 or newer
 - `ip` from `iproute2`
 - `wg` from `wireguard-tools`
 
@@ -34,5 +34,5 @@ Or connect a container to it.
 podman run -it --rm --network ns:/var/run/netns/my-vpn alpine wget -O - https://ipinfo.io
 ~~~
 
-You can find a `wg-quick@.service` equivalent at [extras/systemd/wg-netns@.service](./extras/systemd/wg-netns@.service).
+You can find a `wg-quick@.service` equivalent at [wg-netns@.service](./wg-netns@.service).
 

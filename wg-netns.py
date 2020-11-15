@@ -99,8 +99,8 @@ def setup_interface(wg_dir, netns_dir, name):
 
     netns_dir = netns_dir/name
     netns_dir.mkdir(parents=True, exist_ok=True)
-    if servers := wg_interface.get('dns'):
-        resolvconf = '\n'.join(f'nameserver {server}' for server in servers)
+    if wg_interface.get('dns'):
+        resolvconf = '\n'.join(f'nameserver {server}' for server in wg_interface['dns'])
         netns_dir.joinpath('resolv.conf').write_text(resolvconf)
 
 
