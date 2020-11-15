@@ -34,3 +34,5 @@ Or connect a container to it.
 podman run -it --rm --network ns:/var/run/netns/my-vpn alpine wget -O - https://ipinfo.io
 ~~~
 
+You can find a `wg-quick@.service` equivalent at [extras/systemd/wg-netns@.service](./extras/systemd/wg-netns@.service).
+

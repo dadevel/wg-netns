@@ -1,0 +1,16 @@
+[Unit]
+Description=WireGuard Network Namespace (%i)
+Wants=network-online.target nss-lookup.target
+After=network-online.target nss-lookup.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+Environment=WG_ENDPOINT_RESOLUTION_RETRIES=infinity
+ExecStart=wg-netns up %i
+ExecStop=wg-netns down %i
+
+[Install]
+WantedBy=multi-user.target
+
