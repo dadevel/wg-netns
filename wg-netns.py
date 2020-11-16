@@ -46,8 +46,8 @@ def main(args):
 
     opts = main_parser.parse_args(args)
     commands = dict(
-        up=setup_interface_wrapped,
-        down=teardown_interface,
+        up=setup_wrapped,
+        down=teardown,
         status=print_status,
     )
     fn = commands[opts.command]
@@ -58,29 +58,38 @@ def print_status(wg_dir, netns_dir, name):
     run('ip', 'netns', 'exec', name, 'wg', 'show', name)
 
 
-def setup_interface_wrapped(*args):
+def setup_wrapped(*args):
     try:
-        setup_interface(*args)
+        setup(*args)
     except Exception as e:
-        teardown_interface(*args, force=True)
+        teardown(*args, force=True)
         raise
 
 
-def setup_interface(wg_dir, netns_dir, name):
-    wg_interface, wg_peers = parse_wireguard_config(wg_dir.joinpath(name).with_suffix('.conf'))
+def setup(wg_dir, netns_dir, name):
+    interface_config, peer_config = parse_wireguard_config(wg_dir.joinpath(name).with_suffix('.conf'))
+    setup_network_namespace(name)
+    setup_wireguard_interface(name, interface_config, peer_config)
+    setup_resolv_conf(netns_dir/name, interface_config)
 
+
+def setup_network_namespace(name):
     run('ip', 'netns', 'add', name)
+    run('ip', '-n', name, 'link', 'set', 'dev', 'lo', 'up')
+
+
+def setup_wireguard_interface(name, interface, peers):
     run('ip', 'link', 'add', name, 'type', 'wireguard')
     run('ip', 'link', 'set', name, 'netns', name)
     run(
         'ip', 'netns', 'exec', name,
-        'wg', 'set', name, 'listen-port', wg_interface.get('listenport', 0),
+        'wg', 'set', name, 'listen-port', interface.get('listenport', 0),
     )
     run(
         'ip', 'netns', 'exec', name,
-        'wg', 'set', name, 'private-key', '/dev/stdin', stdin=wg_interface['privatekey'],
+        'wg', 'set', name, 'private-key', '/dev/stdin', stdin=interface['privatekey'],
     )
-    for peer in wg_peers:
+    for peer in peers:
         run(
             'ip', 'netns', 'exec', name,
             'wg', 'set', name,
@@ -91,26 +100,33 @@ def setup_interface(wg_dir, netns_dir, name):
             'allowed-ips', '0.0.0.0/0,::/0',
             stdin=peer.get('presharedkey', ''),
         )
-    for addr in wg_interface['address']:
+    for addr in interface['address']:
         run('ip', '-n', name, '-6' if ':' in addr else '-4', 'address', 'add', addr, 'dev', name)
-    run('ip', '-n', name, 'link', 'set', name, 'mtu', wg_interface.get('mtu', 1420))
+    run('ip', '-n', name, 'link', 'set', name, 'mtu', interface.get('mtu', 1420))
     run('ip', '-n', name, 'link', 'set', name, 'up')
     run('ip', '-n', name, 'route', 'add', 'default', 'dev', name)
 
-    netns_dir = netns_dir/name
-    netns_dir.mkdir(parents=True, exist_ok=True)
-    if wg_interface.get('dns'):
-        resolvconf = '\n'.join(f'nameserver {server}' for server in wg_interface['dns'])
-        netns_dir.joinpath('resolv.conf').write_text(resolvconf)
+
+def setup_resolv_conf(netns_dir, interface_config):
+    if interface_config.get('dns'):
+        netns_dir.mkdir(parents=True, exist_ok=True)
+        text = '\n'.join(f'nameserver {server}' for server in interface_config['dns'])
+        netns_dir.joinpath('resolv.conf').write_text(text)
 
 
-def teardown_interface(wg_dir, netns_dir, name, force=False):
-    run('ip', '-n', name, 'route', 'delete', 'default', 'dev', name, check=not force)
-    run('ip', '-n', name, 'link', 'set', name, 'down', check=not force)
-    run('ip', '-n', name, 'link', 'delete', name, check=not force)
-    run('ip', 'netns', 'delete', name, check=not force)
+def teardown(wg_dir, netns_dir, name, force=False):
+    teardown_network_namespace(name, check=not force)
+    teardown_resolv_conf(netns_dir/name)
 
-    netns_dir = netns_dir/name
+
+def teardown_network_namespace(name, check=True):
+    run('ip', '-n', name, 'route', 'delete', 'default', 'dev', name, check=check)
+    run('ip', '-n', name, 'link', 'set', name, 'down', check=check)
+    run('ip', '-n', name, 'link', 'delete', name, check=check)
+    run('ip', 'netns', 'delete', name, check=check)
+
+
+def teardown_resolv_conf(netns_dir):
     resolv_conf = netns_dir/'resolv.conf'
     if resolv_conf.exists():
         resolv_conf.unlink()
