@@ -34,5 +34,30 @@ Or connect a container to it.
 podman run -it --rm --network ns:/var/run/netns/my-vpn alpine wget -O - https://ipinfo.io
 ~~~
 
+Or do whatever you want.
+
+### System Service
+
 You can find a `wg-quick@.service` equivalent at [wg-netns@.service](./wg-netns@.service).
+
+### Port Forwarding
+
+Forward TCP traffic from outside a network namespace to a port inside a network namespace with `socat`.
+
+~~~ bash
+socat tcp-listen:$LHOST,reuseaddr,fork "exec:ip netns exec $NETNS socat stdio 'tcp-connect:$RHOST',nofork"
+~~~
+
+Example: All connections to port 1234/tcp in the main netns are forwarded into the *my-vpn* netns to port 5678/tcp.
+
+~~~ bash
+# terminal 1, create netns and start http server inside
+wg-netns up my-vpn
+echo hello > ./hello.txt
+ip netns exec my-vpn python3 -m http.server 5678
+# terminal 2, setup port forwarding
+socat tcp-listen:1234,reuseaddr,fork "exec:ip netns exec my-vpn socat stdio 'tcp-connect:127.0.0.1:5678',nofork"
+# terminal 3, test
+curl http://127.0.0.1:1234/hello.txt
+~~~
 
