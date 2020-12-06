@@ -1,223 +1,202 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from pathlib import Path
-import itertools
+import json
 import os
 import subprocess
 import sys
 
+NETNS_CONFIG_DIR = '/etc/netns'
+DEBUG_LEVEL = 0
+
 
 def main(args):
-    main_parser = ArgumentParser(
+    global NETNS_CONFIG_DIR
+    global DEBUG_LEVEL
+
+    entrypoint = ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
         epilog=(
             'environment variables:\n'
-            '  WGNETNS_WG_DIR        wireguard config directory, default: /etc/wireguard\n'
-            '  WGNETNS_NETNS_DIR     network namespace config directory, default: /etc/netns\n'
-            '  WGNETNS_DEBUG         print stack traces\n'
+            f'  NETNS_CONFIG_DIR    network namespace config directory, default: {NETNS_CONFIG_DIR}\n'
+            f'  DEBUG_LEVEL         print stack traces, default: {DEBUG_LEVEL}\n'
         ),
-
     )
-    main_parser.add_argument(
-        '--wg-dir',
-        type=lambda x: Path(x).expanduser(),
-        default=os.environ.get('WGNETNS_WG_DIR', '/etc/wireguard'),
-        metavar='DIRECTORY',
-        help='override WGNETNS_WG_DIR',
-    )
-    main_parser.add_argument(
-        '--netns-dir',
-        type=lambda x: Path(x).expanduser(),
-        default=os.environ.get('WGNETNS_NETNS_DIR', '/etc/netns'),
-        metavar='DIRECTORY',
-        help='override WGNETNS_NETNS_DIR',
-    )
-    subparsers = main_parser.add_subparsers(dest='command', required=True)
 
-    parser = subparsers.add_parser('up', help='set up interface')
-    parser.add_argument('name', help='configuration name')
+    subparsers = entrypoint.add_subparsers(dest='action', required=True)
 
-    parser = subparsers.add_parser('down', help='tear down interface')
-    parser.add_argument('-f', '--force', help='ignore errors')
-    parser.add_argument('name', help='configuration name')
+    parser = subparsers.add_parser('up', help='setup namespace and associated interfaces')
+    parser.add_argument('profile', type=lambda x: Path(x).expanduser(), help='path to profile')
 
-    parser = subparsers.add_parser('status', help='show status info')
-    parser.add_argument('name', help='configuration name')
+    parser = subparsers.add_parser('down', help='teardown namespace and associated interfaces')
+    parser.add_argument('-f', '--force', action='store_true', help='ignore errors')
+    parser.add_argument('profile', type=lambda x: Path(x).expanduser(), help='path to profile')
 
-    opts = main_parser.parse_args(args)
-    commands = dict(
-        up=setup_wrapped,
-        down=teardown,
-        status=print_status,
-    )
-    fn = commands[opts.command]
-    fn(opts.wg_dir, opts.netns_dir, opts.name)
+    opts = entrypoint.parse_args(args)
 
-
-def print_status(wg_dir, netns_dir, name):
-    run('ip', 'netns', 'exec', name, 'wg', 'show', name)
-
-
-def setup_wrapped(*args):
     try:
-        setup(*args)
+        NETNS_CONFIG_DIR = Path(os.environ.get('NETNS_CONFIG_DIR', NETNS_CONFIG_DIR))
+        DEBUG_LEVEL = int(os.environ.get('DEBUG_LEVEL', DEBUG_LEVEL))
     except Exception as e:
-        teardown(*args, force=True)
+        raise RuntimeError(f'failed to load environment variable: {e} (e.__class__.__name__)') from e
+
+    if opts.action == 'up':
+        setup_action(opts.profile)
+    elif opts.action == 'down':
+        teardown_action(opts.profile, check=not opts.force)
+    else:
+        raise RuntimeError('congratulations, you reached unreachable code')
+
+
+def setup_action(path):
+    namespace = profile_read(path)
+    try:
+        namespace_setup(namespace)
+    except KeyboardInterrupt:
+        namespace_teardown(namespace, check=False)
+    except Exception as e:
+        namespace_teardown(namespace, check=False)
         raise
 
 
-def setup(wg_dir, netns_dir, name):
-    interface_config, peer_config = parse_wireguard_config(wg_dir.joinpath(name).with_suffix('.conf'))
-    setup_network_namespace(name)
-    setup_wireguard_interface(name, interface_config, peer_config)
-    setup_resolv_conf(netns_dir/name, interface_config)
+def teardown_action(path, check=True):
+    namespace = profile_read(path)
+    namespace_teardown(namespace, check=check)
 
 
-def setup_network_namespace(name):
-    run('ip', 'netns', 'add', name)
-    run('ip', '-n', name, 'link', 'set', 'dev', 'lo', 'up')
+def profile_read(path):
+    with open(path) as file:
+        return json.load(file)
 
 
-def setup_wireguard_interface(name, interface, peers):
-    run('ip', 'link', 'add', name, 'type', 'wireguard')
-    run('ip', 'link', 'set', name, 'netns', name)
-    run(
-        'ip', 'netns', 'exec', name,
-        'wg', 'set', name, 'listen-port', interface.get('listenport', 0),
-    )
-    run(
-        'ip', 'netns', 'exec', name,
-        'wg', 'set', name, 'private-key', '/dev/stdin', stdin=interface['privatekey'],
-    )
-    for peer in peers:
-        run(
-            'ip', 'netns', 'exec', name,
-            'wg', 'set', name,
-            'peer', peer['publickey'],
-            'preshared-key', '/dev/stdin' if peer.get('presharedkey') else '/dev/null',
-            'endpoint', peer['endpoint'],
-            'persistent-keepalive', peer.get('persistentkeepalive', 0),
-            'allowed-ips', '0.0.0.0/0,::/0',
-            stdin=peer.get('presharedkey', ''),
-        )
-    for addr in interface['address']:
-        run('ip', '-n', name, '-6' if ':' in addr else '-4', 'address', 'add', addr, 'dev', name)
-    run('ip', '-n', name, 'link', 'set', name, 'mtu', interface.get('mtu', 1420))
-    run('ip', '-n', name, 'link', 'set', name, 'up')
-    run('ip', '-n', name, 'route', 'add', 'default', 'dev', name)
+def namespace_setup(namespace):
+    if namespace.get('pre-up'):
+        ip_netns_shell(namespace['pre-up'], netns=namespace)
+    namespace_create(namespace)
+    namespace_resolvconf_write(namespace)
+    for interface in namespace['interfaces']:
+        interface_setup(interface, namespace)
+    if namespace.get('post-up'):
+        ip_netns_shell(namespace['post-up'], netns=namespace)
 
 
-def setup_resolv_conf(netns_dir, interface_config):
-    if interface_config.get('dns'):
-        netns_dir.mkdir(parents=True, exist_ok=True)
-        text = '\n'.join(f'nameserver {server}' for server in interface_config['dns'])
-        netns_dir.joinpath('resolv.conf').write_text(text)
+def namespace_create(namespace):
+    ip('netns', 'add', namespace['name'])
+    ip('-n', namespace['name'], 'link', 'set', 'dev', 'lo', 'up')
 
 
-def teardown(wg_dir, netns_dir, name, force=False):
-    teardown_network_namespace(name, check=not force)
-    teardown_resolv_conf(netns_dir/name)
+def namespace_resolvconf_write(namespace):
+    content = '\n'.join(f'nameserver {server}' for server in namespace['dns-server'])
+    if content:
+        NETNS_CONFIG_DIR.joinpath(namespace['name']).mkdir(parents=True, exist_ok=True)
+        NETNS_CONFIG_DIR.joinpath(namespace['name']).joinpath('resolv.conf').write_text(content)
 
 
-def teardown_network_namespace(name, check=True):
-    run('ip', '-n', name, 'route', 'delete', 'default', 'dev', name, check=check)
-    run('ip', '-n', name, 'link', 'set', name, 'down', check=check)
-    run('ip', '-n', name, 'link', 'delete', name, check=check)
-    run('ip', 'netns', 'delete', name, check=check)
+def namespace_teardown(namespace, check=True):
+    if namespace.get('pre-down'):
+        ip_netns_shell(namespace['pre-down'], netns=namespace)
+    for interface in namespace['interfaces']:
+        interface_teardown(interface, namespace)
+    namespace_delete(namespace)
+    namespace_resolvconf_delete(namespace)
+    if namespace.get('post-down'):
+        ip_netns_shell(namespace['post-down'], netns=namespace)
 
 
-def teardown_resolv_conf(netns_dir):
-    resolv_conf = netns_dir/'resolv.conf'
-    if resolv_conf.exists():
-        resolv_conf.unlink()
+def namespace_delete(namespace, check=True):
+    ip('netns', 'delete', namespace['name'], check=check)
+
+
+def namespace_resolvconf_delete(namespace):
+    path = NETNS_CONFIG_DIR/namespace['name']/'resolv.conf'
+    if path.exists():
+        path.unlink()
     try:
-        netns_dir.rmdir()
+        NETNS_CONFIG_DIR.rmdir()
     except OSError:
         pass
 
 
-def parse_wireguard_config(path):
-    with open(path) as file:
-        it = iter(
-            line.strip()
-            for line in file
-            if line.strip() and not line.startswith('#')
-        )
-        interface = dict()
-        peers = list()
-        try:
-            while True:
-                line = next(it)
-                if line.lower() == '[interface]':
-                    it, result = parse_interface(it)
-                    interface.update(result)
-                elif line.lower() == '[peer]':
-                    it, result = parse_peer(it)
-                    peers.append(result)
-                else:
-                    raise ParserError(f'invalid line: {line}')
-        except ParserError as e:
-            raise ParserError(f'failed to parse wireguard configuration: {e}') from e
-        except StopIteration:
-            return interface, peers
+def interface_setup(interface, namespace):
+    interface_create(interface, namespace)
+    interface_configure_wireguard(interface, namespace)
+    for peer in interface['peers']:
+        peer_setup(peer, interface, namespace)
+    interface_assign_addresses(interface, namespace)
+    interface_bring_up(interface, namespace)
+    interface_create_routes(interface, namespace)
 
 
-def parse_interface(it):
-    result = dict()
-    for line in it:
-        if line.lower() in ('[interface]', '[peer]'):
-            return itertools.chain((line,), it), result
-        key, value = parse_pair(line)
-        if key in ('address', 'dns'):
-            result[key] = parse_items(value)
-        elif key in ('mtu', 'listenport', 'privatekey'):
-            result[key] = value
-        elif key in ('preup', 'postup', 'predown', 'postdown', 'saveconfig', 'table', 'fwmark'):
-            raise ParserError(f'unsupported interface key: {key}')
-        else:
-            raise ParserError(f'unknown interface key: {key}')
-    return iter(()), result
+def interface_create(interface, namespace):
+    ip('link', 'add', interface['name'], 'type', 'wireguard')
+    ip('link', 'set', interface['name'], 'netns', namespace['name'])
 
 
-def parse_peer(it):
-    result = dict()
-    for line in it:
-        if line.lower() in ('[interface]', '[peer]'):
-            return itertools.chain((line,), it), result
-        key, value = parse_pair(line)
-        if key == 'allowedips':
-            result[key] = parse_items(value)
-        elif key in ('presharedkey', 'publickey', 'endpoint', 'persistentkeepalive'):
-            result[key] = value
-        else:
-            raise ParserError(f'unknown peer key: {key}')
-    return iter(()), result
+def interface_configure_wireguard(interface, namespace):
+    wg('set', interface['name'], 'listen-port', interface.get('listen-port', 0), netns=namespace)
+    wg('set', interface['name'], 'fwmark', interface.get('fwmark', 0), netns=namespace)
+    wg('set', interface['name'], 'private-key', '/dev/stdin', stdin=interface['private-key'], netns=namespace)
 
 
-def parse_pair(line):
-    pair = line.split('=', maxsplit=1)
-    if len(pair) != 2:
-        raise ParserError(f'invalid pair: {line}')
-    key, value = pair
-    return key.strip().lower(), value.strip()
+def interface_assign_addresses(interface, namespace):
+    for address in interface['address']:
+        ip('-n', namespace['name'], '-6' if ':' in address else '-4', 'address', 'add', address, 'dev', interface['name'])
 
 
-def parse_items(text):
-    return [item.strip() for item in text.split(',')]
+def interface_bring_up(interface, namespace):
+    ip('-n', namespace['name'], 'link', 'set', 'dev', interface['name'], 'mtu', interface.get('mtu', 1420), 'up')
 
 
-def run(*args, stdin=None, check=False):
-    args = [str(item) for item in args if item is not None]
-    process = subprocess.run(
-        args,
-        input=stdin,
-        text=True,
-        check=check,
-    )
+def interface_create_routes(interface, namespace):
+    for peer in interface['peers']:
+        for network in peer['allowed-ips']:
+            ip('-n', namespace['name'], '-6' if ':' in network else '-4', 'route', 'add', network, 'dev', interface['name'])
 
 
-class ParserError(Exception):
-    pass
+def interface_teardown(interface, namespace, check=True):
+    ip('-n', namespace['name'], 'link', 'set', interface['name'], 'down', check=check)
+    ip('-n', namespace['name'], 'link', 'delete', interface['name'], check=check)
+
+
+def peer_setup(peer, interface, namespace):
+    options = [
+        'peer', peer['public-key'],
+        'preshared-key', '/dev/stdin' if peer.get('preshared-key') else '/dev/null',
+    ]
+    if peer.get('endpoint'):
+        options.extend(('endpoint', peer.get('endpoint')))
+    options += [
+        'persistent-keepalive', peer.get('persistent-keepalive', 0),
+        'allowed-ips', ','.join(peer['allowed-ips']),
+    ]
+    wg('set', interface['name'], *options, stdin=peer.get('preshared-key'), netns=namespace)
+
+
+def wg(*args, **kwargs):
+    return ip_netns_exec('wg', *args, **kwargs)
+
+
+def ip_netns_shell(*args, **kwargs):
+    return ip_netns_exec(SHELL, '-c', *args, **kwargs)
+
+
+def ip_netns_exec(*args, netns=None, **kwargs):
+    return ip('netns', 'exec', netns['name'], *args, **kwargs)
+
+
+def ip(*args, **kwargs):
+    return run('ip', *args, **kwargs)
+
+
+def run(*args, stdin=None, check=True, capture=False):
+    args = [str(item) if item is not None else '' for item in args]
+    if DEBUG_LEVEL:
+        print('>', ' '.join(args), file=sys.stderr)
+    process = subprocess.run(args, input=stdin, text=True, capture_output=capture)
+    if check and process.returncode != 0:
+        error = process.stderr.strip() if process.stderr else f'exit code {process.returncode}'
+        raise RuntimeError(f'subprocess failed: {" ".join(args)}: {error}')
+    return process.stdout
 
 
 if __name__ == '__main__':
@@ -225,7 +204,7 @@ if __name__ == '__main__':
         main(sys.argv[1:])
         sys.exit(0)
     except Exception as e:
-        if os.environ.get('WGNETNS_DEBUG'):
+        if DEBUG_LEVEL:
             raise
         print(f'error: {e} ({e.__class__.__name__})', file=sys.stderr)
         sys.exit(2)
