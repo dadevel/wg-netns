@@ -5,11 +5,11 @@ After=network-online.target nss-lookup.target
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes
-
 Environment=WG_ENDPOINT_RESOLUTION_RETRIES=infinity
-ExecStart=wg-netns up %i
-ExecStop=wg-netns down %i
+ExecStart=wg-netns up ./%i.json
+ExecStop=wg-netns down ./%i.json
+WorkingDirectory=%E/wg-netns
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
