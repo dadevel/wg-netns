@@ -6,6 +6,7 @@ After=network-online.target nss-lookup.target
 [Service]
 Type=oneshot
 Environment=WG_ENDPOINT_RESOLUTION_RETRIES=infinity
+Environment=DEBUG_LEVEL=1
 ExecStart=wg-netns up ./%i.json
 ExecStop=wg-netns down ./%i.json
 WorkingDirectory=%E/wg-netns
