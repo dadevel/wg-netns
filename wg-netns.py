@@ -153,7 +153,7 @@ def interface_bring_up(interface, namespace):
 
 def interface_create_routes(interface, namespace):
     for peer in interface['peers']:
-        for network in peer['allowed-ips']:
+        for network in peer.get('allowed-ips', ()):
             ip('-n', namespace['name'], '-6' if ':' in network else '-4', 'route', 'add', network, 'dev', interface['name'])
 
 
@@ -166,13 +166,12 @@ def peer_setup(peer, interface, namespace):
     options = [
         'peer', peer['public-key'],
         'preshared-key', '/dev/stdin' if peer.get('preshared-key') else '/dev/null',
+        'persistent-keepalive', peer.get('persistent-keepalive', 0),
     ]
     if peer.get('endpoint'):
         options.extend(('endpoint', peer.get('endpoint')))
-    options += [
-        'persistent-keepalive', peer.get('persistent-keepalive', 0),
-        'allowed-ips', ','.join(peer['allowed-ips']),
-    ]
+    if peer.get('allowed-ips'):
+        options.extend(('allowed-ips', ','.join(peer['allowed-ips'])))
     wg('set', interface['name'], *options, stdin=peer.get('preshared-key'), netns=namespace)
 
 
