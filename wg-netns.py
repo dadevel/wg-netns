@@ -8,11 +8,13 @@ import sys
 
 NETNS_CONFIG_DIR = '/etc/netns'
 DEBUG_LEVEL = 0
+SHELL = '/bin/sh'
 
 
 def main(args):
     global NETNS_CONFIG_DIR
     global DEBUG_LEVEL
+    global SHELL
 
     entrypoint = ArgumentParser(
         formatter_class=RawDescriptionHelpFormatter,
@@ -20,6 +22,7 @@ def main(args):
             'environment variables:\n'
             f'  NETNS_CONFIG_DIR    network namespace config directory, default: {NETNS_CONFIG_DIR}\n'
             f'  DEBUG_LEVEL         print stack traces, default: {DEBUG_LEVEL}\n'
+            f'  SHELL               program for execution of shell hooks, default: {SHELL}\n'
         ),
     )
 
@@ -37,6 +40,7 @@ def main(args):
     try:
         NETNS_CONFIG_DIR = Path(os.environ.get('NETNS_CONFIG_DIR', NETNS_CONFIG_DIR))
         DEBUG_LEVEL = int(os.environ.get('DEBUG_LEVEL', DEBUG_LEVEL))
+        SHELL = Path(os.environ.get('SHELL', SHELL))
     except Exception as e:
         raise RuntimeError(f'failed to load environment variable: {e} (e.__class__.__name__)') from e
 
