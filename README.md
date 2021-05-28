@@ -1,21 +1,21 @@
 # wg-netns
 
-[wg-quick](https://git.zx2c4.com/wireguard-tools/about/src/man/wg-quick.8) with support for linux network namespaces.
-It's a simple python script that implements the steps described at [wireguard.com/netns](https://www.wireguard.com/netns/#ordinary-containerization).
+[wg-quick](https://git.zx2c4.com/wireguard-tools/about/src/man/wg-quick.8) with support for Linux network namespaces.
+A simple Python script that implements the steps described at [wireguard.com/netns](https://www.wireguard.com/netns/#ordinary-containerization).
 
 ## Setup
 
 Requirements:
 
-- Linux
 - Python 3.7 or newer
-- `ip` from `iproute2`
-- `wg` from `wireguard-tools`
+- `ip` from iproute2
+- `wg` from wireguard-tools
 
-Just download the script and make it executable.
+Installation:
 
 ~~~ bash
-mkdir -p ~/.local/bin/ && curl -o ~/.local/bin/wg-netns https://raw.githubusercontent.com/dadevel/wg-netns/master/wg-netns.py && chmod 0755 ~/.local/bin/wg-netns
+git clone --depth 1 https://github.com/dadevel/wg-netns.git
+sudo ./wg-netns/setup.sh
 ~~~
 
 ## Usage
@@ -144,4 +144,3 @@ socat tcp-listen:1234,reuseaddr,fork "exec:ip netns exec ns-example socat stdio 
 # terminal 3, test access
 curl http://127.0.0.1:1234/hello.txt
 ~~~
-

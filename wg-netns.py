@@ -211,4 +211,3 @@ if __name__ == '__main__':
             raise
         print(f'error: {e} ({e.__class__.__name__})', file=sys.stderr)
         sys.exit(2)
-
