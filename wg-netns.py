@@ -153,7 +153,8 @@ def interface_bring_up(interface, namespace):
 
 def interface_create_routes(interface, namespace):
     for peer in interface['peers']:
-        for network in peer.get('allowed-ips', ()):
+        networks = peer['routes'] if 'routes' in peer else peer.get('allowed-ips', ())
+        for network in networks:
             ip('-n', namespace['name'], '-6' if ':' in network else '-4', 'route', 'add', network, 'dev', interface['name'])
 
 
