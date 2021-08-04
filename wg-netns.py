@@ -90,7 +90,7 @@ def namespace_create(namespace):
 
 
 def namespace_resolvconf_write(namespace):
-    content = '\n'.join(f'nameserver {server}' for server in namespace['dns-server'])
+    content = '\n'.join(f'nameserver {server}' for server in namespace.get('dns-server', ()))
     if content:
         NETNS_CONFIG_DIR.joinpath(namespace['name']).mkdir(parents=True, exist_ok=True)
         NETNS_CONFIG_DIR.joinpath(namespace['name']).joinpath('resolv.conf').write_text(content)
