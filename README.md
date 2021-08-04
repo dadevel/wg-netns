@@ -129,7 +129,7 @@ You can find a `wg-quick@.service` equivalent at [wg-netns@.service](./wg-netns@
 With `socat` you can forward TCP traffic from outside a network namespace to a port inside a network namespace.
 
 ~~~ bash
-socat tcp-listen:$LHOST,reuseaddr,fork "exec:ip netns exec $NETNS socat stdio 'tcp-connect:$RHOST',nofork"
+socat tcp-listen:$OUTSIDE_PORT,reuseaddr,fork "exec:ip netns exec $NETNS_NAME socat stdio 'tcp-connect:$INSIDE_PORT',nofork"
 ~~~
 
 Example: All connections to port 1234/tcp in the main netns are forwarded into the *ns-example* namespace to port 5678/tcp.
