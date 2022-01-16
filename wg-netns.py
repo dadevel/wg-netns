@@ -3,6 +3,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from pathlib import Path
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -33,6 +34,7 @@ def main(args):
 
     parser = subparsers.add_parser('down', help='teardown namespace and associated interfaces')
     parser.add_argument('-f', '--force', action='store_true', help='ignore errors')
+    parser.add_argument('-n', '--keep-namespace', action='store_true', help='keep the namespace')
     parser.add_argument('profile', type=lambda x: Path(x).expanduser(), help='path to profile')
 
     opts = entrypoint.parse_args(args)
@@ -47,25 +49,26 @@ def main(args):
     if opts.action == 'up':
         setup_action(opts.profile)
     elif opts.action == 'down':
-        teardown_action(opts.profile, check=not opts.force)
+        teardown_action(opts.profile, check=not opts.force, keep_namespace=opts.keep_namespace)
     else:
         raise RuntimeError('congratulations, you reached unreachable code')
 
 
 def setup_action(path):
     namespace = profile_read(path)
+    namespace_exist = namespace_exists(namespace)
     try:
         namespace_setup(namespace)
     except KeyboardInterrupt:
-        namespace_teardown(namespace, check=False)
+        namespace_teardown(namespace, check=False, keep_namespace=namespace_exist)
     except Exception as e:
-        namespace_teardown(namespace, check=False)
+        namespace_teardown(namespace, check=False, keep_namespace=namespace_exist)
         raise
 
 
-def teardown_action(path, check=True):
+def teardown_action(path, check=True, keep_namespace=False):
     namespace = profile_read(path)
-    namespace_teardown(namespace, check=check)
+    namespace_teardown(namespace, check=check, keep_namespace=keep_namespace)
 
 
 def profile_read(path):
@@ -76,12 +79,29 @@ def profile_read(path):
 def namespace_setup(namespace):
     if namespace.get('pre-up'):
         ip_netns_shell(namespace['pre-up'], netns=namespace)
-    namespace_create(namespace)
+    if not namespace_exists(namespace):
+        namespace_create(namespace)
     namespace_resolvconf_write(namespace)
     for interface in namespace['interfaces']:
         interface_setup(interface, namespace)
     if namespace.get('post-up'):
         ip_netns_shell(namespace['post-up'], netns=namespace)
+
+
+def namespace_get_list_of_existing():
+    ip_list = ip('netns', 'list', capture=True).splitlines()
+    rg = re.compile('(?P<name>[^ ]*)(?: \(id: (?P<id>\d+)\))?')
+    existing_namespaces = dict()
+    for line in ip_list:
+        match = rg.fullmatch(line)
+        if match:
+            existing_namespaces[match.group("name")] = match.group("id")
+    return existing_namespaces
+
+
+def namespace_exists(namespace):
+    existing_namespaces = namespace_get_list_of_existing()
+    return namespace['name'] in existing_namespaces
 
 
 def namespace_create(namespace):
@@ -96,12 +116,13 @@ def namespace_resolvconf_write(namespace):
         NETNS_CONFIG_DIR.joinpath(namespace['name']).joinpath('resolv.conf').write_text(content)
 
 
-def namespace_teardown(namespace, check=True):
+def namespace_teardown(namespace, check=True, keep_namespace=False):
     if namespace.get('pre-down'):
         ip_netns_shell(namespace['pre-down'], netns=namespace)
     for interface in namespace['interfaces']:
         interface_teardown(interface, namespace)
-    namespace_delete(namespace)
+    if not keep_namespace:
+        namespace_delete(namespace)
     namespace_resolvconf_delete(namespace)
     if namespace.get('post-down'):
         ip_netns_shell(namespace['post-down'], netns=namespace)
