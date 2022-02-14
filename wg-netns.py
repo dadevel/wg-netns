@@ -74,9 +74,9 @@ def main(args):
 
 @dataclasses.dataclass
 class Peer:
-    name: str
     public_key: str
     preshared_key: Optional[str] = None
+    name: Optional[str] = None
     endpoint: Optional[str] = None
     persistent_keepalive: int = 0
     allowed_ips: list[str] = dataclasses.field(default_factory=list)
@@ -104,8 +104,8 @@ class Peer:
 @dataclasses.dataclass
 class Interface:
     name: str
-    public_key: str
     private_key: str
+    public_key: Optional[str] = None
     address: list[str] = dataclasses.field(default_factory=list)
     listen_port: int = 0
     fwmark: int = 0
