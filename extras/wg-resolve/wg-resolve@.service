@@ -1,0 +1,10 @@
+[Unit]
+Description=WireGuard Endpoint Resolver (%i)
+Wants=network-online.target nss-lookup.target
+After=network-online.target nss-lookup.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%E/wireguard/%i.env
+Environment=WG_ENDPOINT_RESOLUTION_RETRIES=infinity
+ExecStart=/usr/local/lib/wg-resolve.sh

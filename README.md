@@ -124,36 +124,33 @@ You can verify the success with a combination of `ip` and `wg`.
 ip netns exec ns-example wg show
 ~~~
 
-Or you can spawn a shell inside the netns.
+You can also spawn a shell inside the netns.
 
 ~~~ bash
 ip netns exec ns-example bash -i
 ~~~
 
-Or connect a container to it.
-
-~~~ bash
-podman run -it --rm --network ns:/run/netns/ns-example alpine wget -O - https://ipinfo.io
-~~~
-
-Or do whatever else you want.
-
-### System Service
+### Systemd Service
 
 You can find a `wg-quick@.service` equivalent at [wg-netns@.service](./wg-netns@.service).
 Place your profile in `/etc/wireguard/`, e.g. `example.json`, then start the service.
 
 ~~~ bash
-systemctl start wg-netns@example.service
+systemctl enable --now wg-netns@example.service
 ~~~
 
-### Port Forwarding
+### Podman Integration
 
-With `socat` you can forward TCP traffic from outside a network namespace to a port inside a network namespace.
+A podman container can be easily attached to a network namespace created by `wg-netns`.
+The example below starts a container connected to a netns named *ns-example*.
 
 ~~~ bash
-socat tcp-listen:$OUTSIDE_PORT,reuseaddr,fork "exec:ip netns exec $NETNS_NAME socat stdio 'tcp-connect:$INSIDE_PORT',nofork"
+podman run -it --rm --network ns:/run/netns/ns-example docker.io/library/alpine wget -q -O - https://ipinfo.io
 ~~~
+
+### Port Forwarding with Socat
+
+[netns-publish](./extras/netns-publish.sh) is a small wrapper around `socat` that can forward TCP traffic from outside a network namespace to a port inside a network namespace.
 
 Example: All connections to port 1234/tcp in the main/default netns are forwarded to port 5678/tcp in the *ns-example* namespace.
 
@@ -163,7 +160,11 @@ wg-netns up ns-example
 echo 'Hello from ns-example!' > ./hello.txt
 ip netns exec ns-example python3 -m http.server 5678
 # terminal 2, setup port forwarding
-socat tcp-listen:1234,reuseaddr,fork "exec:ip netns exec ns-example socat stdio 'tcp-connect:127.0.0.1:5678',nofork"
+./extras/netns-publish.sh 1234 ns-example 127.0.0.1:5678
 # terminal 3, test access
 curl http://127.0.0.1:1234/hello.txt
 ~~~
+
+### WireGuard with DynDNS
+
+If your WireGuard server endpoint is a DynDNS domain you can use the [wg-resolve](./extras/wg-resolve/) script to periodically check the connectivity and re-resolve the endpoint if necessary. 

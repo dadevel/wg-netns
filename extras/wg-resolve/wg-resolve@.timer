@@ -1,0 +1,9 @@
+[Unit]
+Description=Minutely WireGuard Endpoint Resolver
+
+[Timer]
+OnCalendar=minutely
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target
