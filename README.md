@@ -14,9 +14,23 @@ Requirements:
 
 Installation:
 
+a) With [pipx](https://github.com/pypa/pipx).
+
 ~~~ bash
-git clone --depth 1 https://github.com/dadevel/wg-netns.git
-sudo ./wg-netns/setup.sh
+pipx install git+https://github.com/dadevel/wg-netns.git@main
+~~~
+
+b) With `pip`.
+
+~~~ bash
+pip install --user git+https://github.com/dadevel/wg-netns.git@main
+~~~
+
+c) As standalone script.
+
+~~~ bash
+curl -o ~/.local/bin/wg-netns https://raw.githubusercontent.com/dadevel/wg-netns/main/wgnetns/main.py
+chmod +x ~/.local/bin/wg-netns
 ~~~
 
 ## Usage
@@ -132,10 +146,11 @@ ip netns exec ns-example bash -i
 
 ### Systemd Service
 
-You can find a `wg-quick@.service` equivalent at [wg-netns@.service](./wg-netns@.service).
+You can find a `wg-quick@.service` equivalent at [wg-netns@.service](./extras/wg-netns@.service).
 Place your profile in `/etc/wireguard/`, e.g. `example.json`, then start the service.
 
 ~~~ bash
+curl -o /etc/systemd/system/wg-netns@.service https://raw.githubusercontent.com/dadevel/wg-netns/main/extras/wg-netns@.service
 systemctl enable --now wg-netns@example.service
 ~~~
 

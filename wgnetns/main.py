@@ -21,7 +21,18 @@ VERBOSE = 0
 SHELL = Path('/bin/sh')
 
 
-def main(args):
+def main():
+    try:
+        cli(sys.argv[1:])
+        sys.exit(0)
+    except Exception as e:
+        print(f'error: {e} ({e.__class__.__name__})', file=sys.stderr)
+        if VERBOSE:
+            raise
+        sys.exit(1)
+
+
+def cli(args):
     global WIREGUARD_DIR
     global NETNS_DIR
     global VERBOSE
@@ -292,11 +303,4 @@ def run(*args, stdin: str = None, check=True, capture=False) -> str:
 
 
 if __name__ == '__main__':
-    try:
-        main(sys.argv[1:])
-        sys.exit(0)
-    except Exception as e:
-        print(f'error: {e} ({e.__class__.__name__})', file=sys.stderr)
-        if VERBOSE:
-            raise
-        sys.exit(1)
+    main()
