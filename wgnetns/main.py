@@ -225,12 +225,12 @@ class Namespace:
                 # TODO refactor the internal config
                 # to use the same config format as wg-quick
                 config_map = [
-                    (('Interface', 'Address'),        ('interfaces', 0, 'address')),
+                    (('Interface', 'Address'),        ('interfaces', 0, 'address', 0)),
                     (('Interface', 'PrivateKey'),     ('interfaces', 0, 'private_key')),
                     (('Interface', 'DNS'),            ('dns_server', 0)),
                     (('Peer', 'PersistentKeepalive'), ('interfaces', 0, 'peers', 0, 'persistent_keepalive')),
                     (('Peer', 'PublicKey'),           ('interfaces', 0, 'peers', 0, 'public_key')),
-                    (('Peer', 'AllowedIPs'),          ('interfaces', 0, 'peers', 0, 'allowed_ips')),
+                    (('Peer', 'AllowedIPs'),          ('interfaces', 0, 'peers', 0, 'allowed_ips', 0)),
                     (('Peer', 'Endpoint'),            ('interfaces', 0, 'peers', 0, 'endpoint')),
                 ]
 
@@ -241,10 +241,13 @@ class Namespace:
                 if 'Interface' in raw_config:
                     config['interfaces'] = [dict()]
                     config['interfaces'][0]['name'] = profile_name
+                    config['interfaces'][0]['address'] = ['']
                     if 'DNS' in raw_config['Interface']:
                         config['dns_server'] = ['']
                 if 'Peer' in raw_config:
                     config['interfaces'][0]['peers'] = [dict()]
+                    if 'AllowedIPs' in raw_config['Peer']:
+                        config['interfaces'][0]['peers'][0]['allowed_ips'] = ['']
 
                 def get(obj, path):
                     res = obj
@@ -260,10 +263,12 @@ class Namespace:
                     parent[key] = value
 
                 for (get_path, set_path) in config_map:
-                    # TODO try ...
-                    val = get(raw_config, get_path)
-                    #print(f"get_path {get_path} -> val {val} -> set_path {set_path}")
-                    set(config, set_path, val)
+                    try:
+                        #print(f"get_path {get_path} -> val {val} -> set_path {set_path}")
+                        val = get(raw_config, get_path)
+                        set(config, set_path, val)
+                    except KeyError:
+                        pass
 
                 #print(f"config {config}")
 
