@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import configparser
 
 try:
     import yaml
@@ -191,12 +192,12 @@ class Namespace:
         try:
             return cls.from_dict(cls._read_profile(cls._find_profile(path)))
         except Exception as e:
-            raise RuntimeError('failed to load profile') from e
+            raise RuntimeError(f'failed to load profile: {e}') from e
 
     @staticmethod
     def _find_profile(profile: Path) -> Path:
         if not profile.is_file() and profile.name == profile.as_posix():  # path does not contain '/' and '.'
-            for extension in ('yaml', 'yml', 'json'):
+            for extension in ('yaml', 'yml', 'json', 'conf', 'ini'):
                 path = WIREGUARD_DIR/f'{profile.name}.{extension}'
                 if path.is_file():
                     return path
@@ -211,6 +212,63 @@ class Namespace:
                 return yaml.safe_load(file)
             elif profile.suffix == '.json':
                 return json.load(file)
+            elif profile.suffix in {'.conf', '.ini'}:
+                # strict=False to allow repeated sections
+                #config = configparser.ConfigParser(strict=False)
+                # no. multiple Interface or Peer sections should not be merged
+                # FIXME this throws on repeated sections
+                raw_config = configparser.ConfigParser()
+                raw_config.read_file(file)
+
+                config = dict()
+
+                # TODO refactor the internal config
+                # to use the same config format as wg-quick
+                config_map = [
+                    (('Interface', 'Address'),        ('interfaces', 0, 'address')),
+                    (('Interface', 'PrivateKey'),     ('interfaces', 0, 'private_key')),
+                    (('Interface', 'DNS'),            ('dns_server', 0)),
+                    (('Peer', 'PersistentKeepalive'), ('interfaces', 0, 'peers', 0, 'persistent_keepalive')),
+                    (('Peer', 'PublicKey'),           ('interfaces', 0, 'peers', 0, 'public_key')),
+                    (('Peer', 'AllowedIPs'),          ('interfaces', 0, 'peers', 0, 'allowed_ips')),
+                    (('Peer', 'Endpoint'),            ('interfaces', 0, 'peers', 0, 'endpoint')),
+                ]
+
+                profile_name = os.path.splitext(os.path.basename(profile))[0]
+
+                config['name'] = profile_name
+
+                if 'Interface' in raw_config:
+                    config['interfaces'] = [dict()]
+                    config['interfaces'][0]['name'] = profile_name
+                    if 'DNS' in raw_config['Interface']:
+                        config['dns_server'] = ['']
+                if 'Peer' in raw_config:
+                    config['interfaces'][0]['peers'] = [dict()]
+
+                def get(obj, path):
+                    res = obj
+                    for key in path:
+                        res = res[key]
+                    return res
+
+                def set(obj, path, value):
+                    parent = obj
+                    for key in path[:-1]:
+                        parent = parent[key]
+                    key = path[-1]
+                    parent[key] = value
+
+                for (get_path, set_path) in config_map:
+                    # TODO try ...
+                    val = get(raw_config, get_path)
+                    #print(f"get_path {get_path} -> val {val} -> set_path {set_path}")
+                    set(config, set_path, val)
+
+                #print(f"config {config}")
+
+                return config
+
             else:
                 raise RuntimeError(f'unsupported file format {profile.suffix.removeprefix(".")}')
 
