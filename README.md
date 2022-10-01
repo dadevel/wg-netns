@@ -69,11 +69,15 @@ name: ns-example
 managed: true
 # list of dns servers, if empty dns servers from default netns will be used
 dns-server: [10.10.10.1, 10.10.10.2]
-# shell hooks, e.g. to set firewall rules
-pre-up: echo pre-up
-post-up: echo post-up
-pre-own: echo pre-down
-post-down: echo post-down
+# shell hooks, e.g. to set firewall rules, two formats are supported
+pre-up: echo pre-up from managed netns
+post-up:
+- host-namespace: true
+  command: echo post-up from host netns
+- host-namespace: false
+  command: echo post-up from managed netns
+pre-down: echo pre-down from managed netns
+post-down: echo post-down from managed netns
 # list of wireguard interfaces inside the netns
 interfaces:
   # interface name, required
