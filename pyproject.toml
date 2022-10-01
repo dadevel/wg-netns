@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wgnetns"
-version = "2.0.1"
+version = "2.1.0"
 description = "wg-quick for network namespaces"
 authors = ["dadevel <dadevel@disroot.org>"]
 license = "MIT"
