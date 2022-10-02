@@ -187,3 +187,11 @@ curl http://127.0.0.1:1234/hello.txt
 ### WireGuard with DynDNS
 
 If your WireGuard server endpoint is a DynDNS domain you can use the [wg-resolve](./extras/wg-resolve/) script to periodically check the connectivity and re-resolve the endpoint if necessary. 
+
+### Firefox in Network Namespace
+
+Start a dedicated Firefox profile with working audio inside the netns created by `wg-netns`.
+
+~~~ bash
+sudo ip netns exec ns-example sudo -u "$USER" "HOME=$HOME" "PULSE_SERVER=/run/user/$(id -u)/pulse/native" "PULSE_COOKIE=$HOME/.config/pulse/cookie" firefox -P vpn
+~~~
