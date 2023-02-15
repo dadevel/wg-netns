@@ -65,6 +65,8 @@ Full YAML example:
 ~~~ yaml
 # name of the network namespace
 name: ns-example
+# namespace where the interface is initialized, defaults to the main/default namespace
+base_netns: null
 # if false, the netns itself won't be created or deleted, just the interfaces inside it
 managed: true
 # list of dns servers, if empty dns servers from default netns will be used
