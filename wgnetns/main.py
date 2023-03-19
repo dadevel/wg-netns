@@ -135,7 +135,7 @@ class Peer:
 class Interface:
     name: str
     base_netns: str
-    private_key: str
+    private_key: Optional[str] = None
     public_key: Optional[str] = None
     address: list[str] = dataclasses.field(default_factory=list)
     listen_port: int = 0
@@ -166,7 +166,8 @@ class Interface:
     def _configure_wireguard(self, namespace: Namespace) -> None:
         wg('set', self.name, 'listen-port', self.listen_port, netns=namespace.name)
         wg('set', self.name, 'fwmark', self.fwmark, netns=namespace.name)
-        wg('set', self.name, 'private-key', '/dev/stdin', stdin=self.private_key, netns=namespace.name)
+        if self.private_key:
+            wg('set', self.name, 'private-key', '/dev/stdin', stdin=self.private_key, netns=namespace.name)
 
     def _assign_addresses(self, namespace: Namespace) -> None:
         for address in self.address:

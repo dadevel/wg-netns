@@ -88,6 +88,7 @@ interfaces:
   address:
   - 10.10.11.172/32
   - fc00:dead:beef:1::172/128
+  # can also be set via "wg set wg-site-a $key"
   private-key: nFkQQjN+...
   # optional settings
   listen-port: 51821
