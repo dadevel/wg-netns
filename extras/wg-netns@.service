@@ -13,6 +13,7 @@ RemainAfterExit=yes
 
 WorkingDirectory=%E/wireguard
 ConfigurationDirectory=wireguard
+ConfigurationDirectoryMode=700
 
 [Install]
 WantedBy=multi-user.target
