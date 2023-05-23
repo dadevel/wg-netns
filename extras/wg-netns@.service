@@ -4,6 +4,36 @@ Wants=network-online.target nss-lookup.target
 After=network-online.target nss-lookup.target
 
 [Service]
+RestrictNamespaces=
+ProtectSystem=strict
+ProtectHome=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+PrivateTmp=true
+PrivateMounts=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectProc=true
+ProtectSystem=true
+RestrictSUIDSGID=true
+SystemCallFilter=
+AmbientCapabilities=
+LockPersonality=true
+RemoveIPC=true
+MemoryDenyWriteExecute=true
+ProtectHostname=true
+ProcSubset=
+NoNewPrivileges=true
+RestrictRealtime=true
+UMask=600
+LimitNOFILE=1048576
+LimitNPROC=512
+
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_NET_ADMIN
+
 Type=oneshot
 Environment=WG_ENDPOINT_RESOLUTION_RETRIES=infinity
 Environment=WG_VERBOSE=1
