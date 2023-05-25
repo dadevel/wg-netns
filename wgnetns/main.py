@@ -4,6 +4,7 @@ from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from pathlib import Path
 from typing import Any, Optional
 import dataclasses
+import getpass
 import json
 import os
 import subprocess
@@ -92,7 +93,7 @@ def cli(args):
         data = json.loads(output)
         print('\n'.join(item['name'] for item in data))
     elif opts.action == 'switch':
-        os.execvp('sudo', ['ip', 'ip', 'netns', 'exec', opts.netns, 'sudo', '-u', os.getlogin(), '-D', Path.cwd().as_posix(), os.environ['SHELL'], '-i'])
+        os.execvp('sudo', ['ip', 'ip', 'netns', 'exec', opts.netns, 'sudo', '-u', getpass.getuser(), '-D', Path.cwd().as_posix(), os.environ['SHELL'], '-i'])
     else:
         raise RuntimeError('congratulations, you reached unreachable code')
 
