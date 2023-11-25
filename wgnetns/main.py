@@ -90,6 +90,8 @@ def cli(args):
         namespace.teardown(check=not opts.force)
     elif opts.action == 'list':
         output = ip('-json', 'netns', capture=True)
+        if not output:
+            return
         data = json.loads(output)
         print('\n'.join(item['name'] for item in data))
     elif opts.action == 'switch':
