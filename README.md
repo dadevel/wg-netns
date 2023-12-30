@@ -161,8 +161,9 @@ curl -o /etc/systemd/system/wg-netns@.service https://raw.githubusercontent.com/
 systemctl enable --now wg-netns@example.service
 ~~~
 
-If you are using SELinux, you have to change the SELinux-Context-Label to e.g. to 'bin_t', otherwise the service will not find the executable:
-~~~
+If you are using SELinux, you have to change the SELinux context label, e.g. to `bin_t`, otherwise the service will not find the executable.
+
+~~~ bash
 chcon -t bin_t /root/.local/bin/wg-netns
 ~~~
 
