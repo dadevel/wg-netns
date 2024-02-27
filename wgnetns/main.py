@@ -15,6 +15,7 @@ try:
     YAML_SUPPORTED = True
 except ModuleNotFoundError:
     YAML_SUPPORTED = False
+    yaml = NotImplemented
 
 WIREGUARD_DIR = Path('/etc/wireguard')
 NETNS_DIR = Path('/etc/netns')
@@ -172,17 +173,17 @@ class Interface:
         if self.private_key:
             wg('set', self.name, 'private-key', '/dev/stdin', stdin=self.private_key, netns=self.base_netns)
 
-    def _assign_namespace(self, namespace: str) -> None:
-        ip('link', 'set', self.name, 'netns', namespace, netns=self.base_netns)
+    def _assign_namespace(self, namespace: str|None) -> None:
+        ip('link', 'set', self.name, 'netns', namespace if namespace else '1', netns=self.base_netns)
 
-    def _assign_addresses(self, namespace: str) -> None:
+    def _assign_addresses(self, namespace: str|None) -> None:
         for address in self.address:
             ip('-6' if ':' in address else '-4', 'address', 'add', address, 'dev', self.name, netns=namespace)
 
-    def _bring_up(self, namespace: str) -> None:
+    def _bring_up(self, namespace: str|None) -> None:
         ip('link', 'set', 'dev', self.name, 'mtu', self.mtu, 'up', netns=namespace)
 
-    def _create_routes(self, namespace: str):
+    def _create_routes(self, namespace: str|None):
         for peer in self.peers:
             networks = peer.routes if peer.routes is not None else peer.allowed_ips
             for network in networks:
@@ -217,8 +218,8 @@ class ScriptletItem:
         host_namespace = bool(data.pop('host_namespace', None))
         return cls(**data, host_namespace=host_namespace)
 
-    def run(self, netns: str):
-        if self.host_namespace:
+    def run(self, netns: str|None):
+        if self.host_namespace or not netns:
             host_eval(self.command)
         else:
             ip_netns_eval(self.command, netns=netns)
@@ -247,14 +248,14 @@ class Scriptlet:
         item = ScriptletItem.from_str(data)
         return cls(items=[item])
 
-    def run(self, netns: str):
+    def run(self, netns: str|None):
         for item in self.items:
             item.run(netns=netns)
 
 
 @dataclasses.dataclass
 class Namespace:
-    name: str
+    name: str|None
     pre_up: Optional[Scriptlet] = None
     post_up: Optional[Scriptlet] = None
     pre_down: Optional[Scriptlet] = None
@@ -302,7 +303,7 @@ class Namespace:
         return cls(**data, **scriptlets, interfaces=interfaces)  # type: ignore
 
     def setup(self) -> Namespace:
-        if self.managed:
+        if self.managed and self.name:
             self._create()
             self._write_resolvconf()
         if self.pre_up:
@@ -338,6 +339,7 @@ class Namespace:
 
     @property
     def _resolvconf_path(self) -> Path:
+        assert self.name
         return NETNS_DIR/self.name/'resolv.conf'
 
     def _write_resolvconf(self) -> None:
@@ -370,8 +372,8 @@ def ip_netns_exec(*args, netns: str, stdin: str|None = None, check=True, capture
     return ip('netns', 'exec', netns, *args, stdin=stdin, check=check, capture=capture)
 
 
-def ip(*args, stdin: str|None = None, netns=None, check=True, capture=False) -> str:
-    return run('ip', *([] if netns is None else ['-n', netns]), *args, stdin=stdin, check=check, capture=capture)
+def ip(*args, stdin: str|None = None, netns: str|None =None, check=True, capture=False) -> str:
+    return run('ip', *(['-n', netns] if netns else []), *args, stdin=stdin, check=check, capture=capture)
 
 
 def host_eval(*args, stdin: str|None = None, check=True, capture=False) -> str:

@@ -63,9 +63,9 @@ Minimal JSON example:
 Full YAML example:
 
 ~~~ yaml
-# name of the network namespace
+# name of the network namespace where the interface is moved into, if null the default namespace is used
 name: ns-example
-# namespace where the interface is initialized, defaults to the main/default namespace
+# namespace where the interface is initialized, if null the default namespace is used
 base_netns: null
 # if false, the netns itself won't be created or deleted, just the interfaces inside it
 managed: true
