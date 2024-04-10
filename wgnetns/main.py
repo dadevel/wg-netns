@@ -65,6 +65,10 @@ def cli(args):
     parser = subparsers.add_parser('switch', help='open shell in namespace')
     parser.add_argument('netns', metavar='NETNS', help='network namespace name')
 
+    parser = subparsers.add_parser('exec', help='run command in namespace')
+    parser.add_argument('netns', metavar='NETNS', help='network namespace name')
+    parser.add_argument('command', nargs='+', help='command')
+
     opts = entrypoint.parse_args(args)
 
     try:
@@ -97,6 +101,8 @@ def cli(args):
         print('\n'.join(item['name'] for item in data))
     elif opts.action == 'switch':
         os.execvp('sudo', ['ip', 'ip', 'netns', 'exec', opts.netns, 'sudo', '-u', getpass.getuser(), '-D', Path.cwd().as_posix(), os.environ['SHELL'], '-i'])
+    elif opts.action == 'exec':
+        os.execvp('sudo', ['ip', 'ip', 'netns', 'exec', opts.netns, 'sudo', '-u', getpass.getuser(), '-D', Path.cwd().as_posix(), *opts.command])
     else:
         raise RuntimeError('congratulations, you reached unreachable code')
 
