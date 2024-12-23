@@ -1,0 +1,13 @@
+Source: wg-netns
+Section: contrib/net
+Priority: optional
+Maintainer: Christopher Hoover <ch@murgatroid.com>
+Vcs-Browser: https://github.com/charlieh0tel/wg-netns
+Vcs-Git: git@github.com:charlieh0tel/wg-netns.git
+Build-Depends: debhelper-compat (= 13), dh-exec, python3, python3-dev, dh-sequence-python3
+
+Package: wg-netns
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}
+Description: Wireguard in network namespaces.
+ Support for setting up wireguard in network namespaces.

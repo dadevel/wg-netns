@@ -1,0 +1,5 @@
+wg-netns (1.0.0-1) unstable; urgency=low
+
+  * Initial release (Closes: #424242)
+
+ -- Christopher Hoover <ch@murgatoid.com>  Sun, 22 Dec 2024 17:29:00 +0800

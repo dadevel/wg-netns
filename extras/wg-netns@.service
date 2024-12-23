@@ -7,8 +7,8 @@ After=network-online.target nss-lookup.target
 Type=oneshot
 Environment=WG_ENDPOINT_RESOLUTION_RETRIES=infinity
 Environment=WG_VERBOSE=1
-ExecStart=wg-netns up %i
-ExecStop=wg-netns down %i
+ExecStart=/usr/bin/wg-netns up %i
+ExecStop=/usr/bin/wg-netns down %i
 RemainAfterExit=yes
 
 WorkingDirectory=%E/wireguard
