@@ -33,6 +33,10 @@ curl -o ~/.local/bin/wg-netns https://raw.githubusercontent.com/dadevel/wg-netns
 chmod +x ~/.local/bin/wg-netns
 ~~~
 
+> [!NOTE]
+> `systemd-resolved` might cause DNS leaks or interfere with the DNS resolution in other ways.
+> See [issue 29](https://github.com/dadevel/wg-netns/issues/29) for more information.
+
 ## Usage
 
 First, create a configuration profile.
