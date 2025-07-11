@@ -152,7 +152,13 @@ ip netns exec ns-example wg show
 You can also spawn a shell inside the netns.
 
 ~~~ bash
-ip netns exec ns-example bash -i
+ip netns exec ns-example bash
+~~~
+
+To execute commands with options insert a double dash.
+
+~~~ bash
+ip netns exec ns-example -- curl -sSf ipinfo.io
 ~~~
 
 ### Systemd Service
