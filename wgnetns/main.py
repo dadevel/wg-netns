@@ -100,9 +100,9 @@ def cli(args):
         data = json.loads(output)
         print('\n'.join(item['name'] for item in data))
     elif opts.action == 'switch':
-        os.execvp('sudo', ['ip', 'ip', 'netns', 'exec', opts.netns, 'sudo', '-u', getpass.getuser(), os.environ['SHELL'], '-i'])
+        os.execvp('sudo', ['sudo', '--', 'ip', 'netns', 'exec', opts.netns, 'sudo', '-u', getpass.getuser(), f'WG_NETNS_NAME={opts.netns}', '--', os.environ['SHELL'], '-i'])
     elif opts.action == 'exec':
-        os.execvp('sudo', ['ip', 'ip', 'netns', 'exec', opts.netns, 'sudo', '-u', getpass.getuser(), *opts.command])
+        os.execvp('sudo', ['sudo', '--', 'ip', 'netns', 'exec', opts.netns, 'sudo', '-u', getpass.getuser(), f'WG_NETNS_NAME={opts.netns}', '--', *opts.command])
     else:
         raise RuntimeError('congratulations, you reached unreachable code')
 
