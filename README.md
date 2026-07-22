@@ -214,3 +214,22 @@ Start a dedicated Firefox profile with working audio inside the netns created by
 ~~~ bash
 sudo ip netns exec ns-example sudo -u "$USER" "HOME=$HOME" "PULSE_SERVER=/run/user/$(id -u)/pulse/native" "PULSE_COOKIE=$HOME/.config/pulse/cookie" firefox -P vpn
 ~~~
+
+### Chromium-based Browsers in Network Namespace
+
+If you have no other open Chromium window you can use the following command to get a browser instance in the *ns-example* namespace.
+Chromium is used as an example, but any Chromium-based browser should work the same.
+
+~~~ bash
+sudo -E ip netns exec ns-example sudo -E -u "$USER" chromium
+~~~
+
+> [!NOTE]
+> If any other Chromium process is running the command will not work as expected, because it will create a new window in the existing process, which runs outside *ns-example*.
+> In that case you can kill all running processes with `pkill -ex chromium`.
+
+If you wish to open multiple Chromium windows each in their own network namespace you need to use a different `user-data-dir` for each.
+
+~~~ bash
+sudo -E ip netns exec ns-example sudo -E -u "$USER" chromium --user-data-dir="$HOME/.config/chromium/chromium-ns-example"
+~~~
